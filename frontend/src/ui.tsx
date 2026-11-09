@@ -31,7 +31,7 @@ export default function App() {
       const response = await fetch(`${API}/api/v1/scans`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
       if (!response.ok) throw new Error((await response.json()).detail || 'Could not start scan');
       let scan = await response.json(); setCurrent(scan);
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 90; i++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         scan = await fetch(`${API}/api/v1/scans/${scan.id}`).then(r => r.json());
         setCurrent(scan);
@@ -53,7 +53,7 @@ export default function App() {
   const suspicious = current?.status === 'completed' && (!!seriousFinding || (current.risk_score ?? 0) >= 40);
   const safe = current?.status === 'completed' && !suspicious && current.risk_score !== null;
   const verdict = suspicious ? 'Suspicious' : safe ? 'Safe' : current?.status === 'failed' ? 'Could not scan' : 'Scanning…';
-  const explanation = seriousFinding?.title || (suspicious
+  const explanation = result?.ai_explanation || current?.result?.error || seriousFinding?.title || (suspicious
     ? result?.findings?.[0]?.title || 'The scan found patterns that need a closer look.'
     : safe
       ? 'No major risky behavior was found in the code we inspected. A scan cannot guarantee that every part of a site is safe.'
@@ -61,7 +61,7 @@ export default function App() {
 
   return <main className="simple-app">
     <header className="simple-top"><div className="brand"><div className="logo"><Shield size={21}/></div><span>LINKSHIELD <b>AI</b></span></div><span className={'connection ' + (connected ? 'connected' : '')}>{connected ? 'Connected' : 'Offline'}</span></header>
-    <section className="simple-hero"><div className="eyebrow">LINK SAFETY CHECK</div><h1>Check a link<br/><em>before you open it.</em></h1><p>We inspect the page and its code for signs of risky behavior.</p>
+    <section className="simple-hero"><div className="eyebrow">LINK SAFETY CHECK · CEREBRAS AI</div><h1>Check a link<br/><em>before you open it.</em></h1><p>We inspect the page’s code; Cerebras AI explains every result.</p>
       <form className="scanbox" onSubmit={submit}><Globe size={19}/><input value={url} onChange={e => setUrl(e.target.value)} placeholder="Paste a website link" type="url" required/><button disabled={busy}><ScanLine size={17}/>{busy ? 'Checking…' : 'Check link'}</button></form>
       {error && <div className="error">{error}</div>}
       <div className="simple-hint">The scan does not open or run the page’s scripts.</div>
@@ -70,7 +70,7 @@ export default function App() {
     {current && <section className={'verdict-card ' + (suspicious ? 'is-suspicious' : safe ? 'is-safe' : '')}>
       <div className="verdict-label">{verdict}</div>
       <div className="verdict-url">{result?.domain || current.url}</div>
-      <p>{explanation}</p>
+      {current.status === 'completed' && <div className="ai-label">Cerebras AI · {result?.ai_model || 'configured model'}</div>}<p>{explanation}</p>
     </section>}
 
     <section className="recent"><div className="recent-heading"><h2>Recent checks</h2><span>{scans.length}</span></div>
