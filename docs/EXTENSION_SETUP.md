@@ -1,0 +1,3 @@
+# Chrome extension
+
+Run the backend, open `chrome://extensions`, enable Developer mode, select **Load unpacked**, and select this directory. The extension uses `webNavigation`, `tabs`, and `storage`. It checks top-level HTTP(S) navigations after Chrome commits them and presents the result in its popup. Chrome's APIs used here do not provide a general safe interstitial that can reliably stop every destination before it loads; the extension therefore does not claim complete prevention. High and critical results get a toolbar badge. Configure the backend URL in popup settings when it is not localhost.
