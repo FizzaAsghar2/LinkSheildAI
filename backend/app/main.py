@@ -31,14 +31,19 @@ def perform(scan_id: int):
         if not row:return
         row.status="running"; db.commit()
         result=scan_url(row.url)
+        from .ai import explain_report
+        result["ai_provider"]="Cerebras"
+        result["ai_model"]=settings.cerebras_model
+        result["ai_explanation"]=explain_report(result)
         row.status="completed"; row.result=result; row.risk_score=result["risk_score"]; row.classification=result["classification"]; row.scanned_at=datetime.now(timezone.utc); db.commit()
+        db.add(AIExplanation(scan_id=row.id,created_at=datetime.now(timezone.utc),explanation=result["ai_explanation"],provider="cerebras")); db.commit()
         for f in result.get("findings",[]): db.add(ScanFinding(scan_id=row.id,finding_key=f.get("id"),severity=f.get("severity"),title=f.get("title"),details=f))
         for e in result.get("evidence",[]): db.add(ScanEvidence(scan_id=row.id,detail=e))
         for k in ("final_url","domain","confidence","reputation","dynamic_analysis"): db.add(ScanMetadata(scan_id=row.id,key=k,value=result.get(k)))
         db.commit()
     except Exception as e:
         row=db.get(Scan,scan_id)
-        if row: row.status="failed"; row.result={"error":"Scan could not be completed safely."}; db.commit()
+        if row: row.status="failed"; row.result={"error":str(e) if isinstance(e,RuntimeError) and "Cerebras" in str(e) else "Scan could not be completed safely."}; db.commit()
     finally: db.close()
 
 @app.get("/health")
@@ -83,12 +88,16 @@ def extension_check(body:ScanRequest):
     except ValueError as e: raise HTTPException(422,str(e))
     # Shared deterministic scan engine; no second reputation/scanning implementation.
     result=scan_url(url)
-    return {"url":url,"scanner_version":result.get("scanner_version"),"risk_score":result["risk_score"],"classification":result["classification"],"verdict":result.get("verdict","INCONCLUSIVE"),"score_breakdown":result.get("score_breakdown",[]),"confidence":result.get("confidence","low"),"findings":result["findings"],"evidence":result.get("evidence",[]),"script_analysis":result.get("script_analysis",{}),"status":"completed"}
+    from .ai import explain_report
+    try: result["ai_explanation"]=explain_report(result)
+    except RuntimeError as e: raise HTTPException(503,str(e)) from e
+    result["ai_provider"]="Cerebras"; result["ai_model"]=settings.cerebras_model
+    return {"url":url,"scanner_version":result.get("scanner_version"),"risk_score":result["risk_score"],"classification":result["classification"],"verdict":result.get("verdict","INCONCLUSIVE"),"score_breakdown":result.get("score_breakdown",[]),"confidence":result.get("confidence","low"),"findings":result["findings"],"evidence":result.get("evidence",[]),"script_analysis":result.get("script_analysis",{}),"ai_provider":result["ai_provider"],"ai_model":result["ai_model"],"ai_explanation":result["ai_explanation"],"status":"completed"}
 
 @app.get("/api/v1/settings")
 def get_settings():
     import importlib.util
-    return {"scanner_version":SCANNER_VERSION,"ai_explanations_available":bool(settings.cerebras_api_key),"javascript_ast_parser_available":importlib.util.find_spec("esprima") is not None,"web_risk_enabled":bool(settings.web_risk_enabled and settings.web_risk_api_key),"web_risk_data_sharing":"When enabled, each full scanned URL is sent to Google Web Risk for lookup.","retention":"Local SQLite; delete individual scans from history.","dynamic_analysis":"Disabled: no isolated disposable execution environment configured."}
+    return {"scanner_version":SCANNER_VERSION,"cerebras_required":True,"cerebras_ready":bool(settings.cerebras_api_key),"javascript_ast_parser_available":importlib.util.find_spec("esprima") is not None,"web_risk_enabled":bool(settings.web_risk_enabled and settings.web_risk_api_key),"web_risk_data_sharing":"When enabled, each full scanned URL is sent to Google Web Risk for lookup.","retention":"Local SQLite; delete individual scans from history.","dynamic_analysis":"Disabled: no isolated disposable execution environment configured."}
 
 @app.post("/api/v1/explanations/{scan_id}")
 def explain(scan_id:int):
