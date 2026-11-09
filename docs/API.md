@@ -11,5 +11,7 @@ Interactive OpenAPI docs are served at `/docs`.
 - `GET /api/v1/settings`
 - `POST /api/v1/explanations/{id}` generates another Cerebras explanation for a completed report.
 
-Every web scan calls Cerebras before it can complete. Configure `CEREBRAS_API_KEY` and `CEREBRAS_MODEL` in `backend/.env`; missing configuration or a Cerebras error fails the scan with a clear error. The prompt includes structured scanner findings and coverage, not the full URL or fetched page source. Cerebras summarizes evidence and does not assign or change the risk score or verdict.\n\nCompleted reports distinguish the severity classification from the assessment verdict. `INCONCLUSIVE` means coverage or verification was insufficient; `REVIEW` means indicators need human review; `SUSPICIOUS` means high-severity patterns were observed. The 0–100 score is evidence-weighted, not a probability. No report certifies a site as safe.
+Every web scan calls Cerebras before it can complete. Configure `CEREBRAS_API_KEY` and `CEREBRAS_MODEL` in `backend/.env`; missing configuration or a Cerebras error fails the scan with a clear error. The prompt includes structured scanner findings and coverage, not the full URL or fetched page source. Cerebras summarizes evidence and does not assign or change the risk score or verdict.
+
+Completed reports distinguish the severity classification from the assessment verdict. `INCONCLUSIVE` means coverage or verification was insufficient; `REVIEW` means indicators need human review; `SUSPICIOUS` means high-severity patterns were observed. The 0–100 score is evidence-weighted, not a probability. No report certifies a site as safe.
 
